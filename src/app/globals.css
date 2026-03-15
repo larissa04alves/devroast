@@ -1,26 +1,65 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* ── Fonts ──────────────────────────────────────────────
+     --font-sans  → fonte padrão do sistema (sem-serif)
+     --font-mono  → JetBrains Mono para todo texto monospaced
+  ──────────────────────────────────────────────────────── */
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ── Background ─────────────────────────────────────── */
+  --color-bg-page: #0a0a0a;
+  --color-bg-surface: #0f0f0f;
+  --color-bg-input: #111111;
+  --color-bg-elevated: #1a1a1a;
+
+  /* ── Text ───────────────────────────────────────────── */
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #4b5563;
+  --color-text-muted: #525252;
+
+  /* ── Borders ────────────────────────────────────────── */
+  --color-border-primary: #2a2a2a;
+  --color-border-hover: #3a3a3a;
+  --color-border-focus: #10b981;
+
+  /* ── Accents ────────────────────────────────────────── */
+  --color-accent-green: #10b981;
+  --color-accent-green-hover: #0ea571;
+  --color-accent-amber: #f59e0b;
+  --color-accent-red: #ef4444;
+  --color-accent-red-hover: #dc2626;
+  --color-accent-cyan: #06b6d4;
+
+  /* ── Diff ───────────────────────────────────────────── */
+  --color-diff-removed: #1a0a0a;
+  --color-diff-added: #0a1a0f;
+
+  /* ── Text extras ────────────────────────────────────── */
+  --color-text-link-hover: #a3a3a3;
+
+  /* ── Syntax highlight ───────────────────────────────── */
+  --color-syn-function: #ffc799;
+  --color-syn-keyword: #a0a0a0;
+  --color-syn-string: #99ffe4;
+  --color-syn-number: #ffc799;
+  --color-syn-type: #ffc799;
+  --color-syn-variable: #ffffff;
+  --color-syn-operator: #a0a0a0;
+  --color-syn-property: #a0a0a0;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ── Base ─────────────────────────────────────────────── */
+@layer base {
+  body {
+    background-color: var(--color-bg-page);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
