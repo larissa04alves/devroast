@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { BundledLanguage } from "shiki";
 
 // Supported languages: hljs ID → Shiki ID
-// hljs IDs mostly match Shiki IDs; only edge cases need explicit mapping
 const HLJS_TO_SHIKI: Record<string, BundledLanguage> = {
   javascript: "javascript",
   typescript: "typescript",
@@ -32,124 +31,55 @@ const HLJS_TO_SHIKI: Record<string, BundledLanguage> = {
   r: "r",
   perl: "perl",
   lua: "lua",
-  // edge cases where hljs ID ≠ shiki ID (none currently in this set)
 };
 
-export const SUPPORTED_LANGUAGES = Object.keys(HLJS_TO_SHIKI) as string[];
+export const SUPPORTED_LANGUAGES = Object.keys(HLJS_TO_SHIKI).filter(
+  (l) => l !== "shell" // deduplica o alias
+) as string[];
 
 export type SupportedLanguage = BundledLanguage;
 
-const MIN_RELEVANCE = 5;
-const DEBOUNCE_MS = 500;
-const MIN_CHARS = 20;
+const MIN_RELEVANCE = 3;
+const DEBOUNCE_MS = 400;
+const MIN_CHARS = 15;
 
-type HljsModule = typeof import("highlight.js/lib/core").default;
+// Lazily load the full hljs bundle — runs only on the client, so bundle size is not a concern.
+// Using the full build avoids Turbopack chunk-splitting issues with granular ES language imports.
+let hljsPromise: Promise<typeof import("highlight.js").default> | null = null;
 
-// Lazily initialized hljs instance (tree-shakeable subset)
-let hljsPromise: Promise<HljsModule> | null = null;
-
-function getHljs(): Promise<HljsModule> {
+function getHljs() {
   if (!hljsPromise) {
-    hljsPromise = (async () => {
-      const [
-        { default: hljs },
-        { default: javascript },
-        { default: typescript },
-        { default: python },
-        { default: rust },
-        { default: go },
-        { default: java },
-        { default: c },
-        { default: cpp },
-        { default: csharp },
-        { default: php },
-        { default: ruby },
-        { default: sql },
-        { default: xml },
-        { default: css },
-        { default: bash },
-        { default: json },
-        { default: yaml },
-        { default: markdown },
-        { default: swift },
-        { default: kotlin },
-        { default: scala },
-      ] = await Promise.all([
-        import("highlight.js/lib/core"),
-        import("highlight.js/lib/languages/javascript"),
-        import("highlight.js/lib/languages/typescript"),
-        import("highlight.js/lib/languages/python"),
-        import("highlight.js/lib/languages/rust"),
-        import("highlight.js/lib/languages/go"),
-        import("highlight.js/lib/languages/java"),
-        import("highlight.js/lib/languages/c"),
-        import("highlight.js/lib/languages/cpp"),
-        import("highlight.js/lib/languages/csharp"),
-        import("highlight.js/lib/languages/php"),
-        import("highlight.js/lib/languages/ruby"),
-        import("highlight.js/lib/languages/sql"),
-        import("highlight.js/lib/languages/xml"),
-        import("highlight.js/lib/languages/css"),
-        import("highlight.js/lib/languages/bash"),
-        import("highlight.js/lib/languages/json"),
-        import("highlight.js/lib/languages/yaml"),
-        import("highlight.js/lib/languages/markdown"),
-        import("highlight.js/lib/languages/swift"),
-        import("highlight.js/lib/languages/kotlin"),
-        import("highlight.js/lib/languages/scala"),
-      ]);
-
-      hljs.registerLanguage("javascript", javascript);
-      hljs.registerLanguage("typescript", typescript);
-      hljs.registerLanguage("python", python);
-      hljs.registerLanguage("rust", rust);
-      hljs.registerLanguage("go", go);
-      hljs.registerLanguage("java", java);
-      hljs.registerLanguage("c", c);
-      hljs.registerLanguage("cpp", cpp);
-      hljs.registerLanguage("csharp", csharp);
-      hljs.registerLanguage("php", php);
-      hljs.registerLanguage("ruby", ruby);
-      hljs.registerLanguage("sql", sql);
-      hljs.registerLanguage("xml", xml);
-      hljs.registerLanguage("css", css);
-      hljs.registerLanguage("bash", bash);
-      hljs.registerLanguage("shell", bash); // alias
-      hljs.registerLanguage("json", json);
-      hljs.registerLanguage("yaml", yaml);
-      hljs.registerLanguage("markdown", markdown);
-      hljs.registerLanguage("swift", swift);
-      hljs.registerLanguage("kotlin", kotlin);
-      hljs.registerLanguage("scala", scala);
-
-      return hljs;
-    })();
+    hljsPromise = import("highlight.js").then((m) => m.default);
   }
   return hljsPromise;
 }
 
-function detectWithHljs(hljs: HljsModule, code: string): BundledLanguage | null {
-  const result = hljs.highlightAuto(code, Object.keys(HLJS_TO_SHIKI));
-  if (!result.language || result.relevance < MIN_RELEVANCE) return null;
+function detectWithHljs(
+  hljs: Awaited<ReturnType<typeof getHljs>>,
+  code: string
+): BundledLanguage | null {
+  const candidates = Object.keys(HLJS_TO_SHIKI);
+  const result = hljs.highlightAuto(code, candidates);
+  if (!result.language || (result.relevance ?? 0) < MIN_RELEVANCE) return null;
   return HLJS_TO_SHIKI[result.language] ?? null;
 }
 
 export interface UseLanguageDetectionReturn {
-  /** Currently active language (detected or manually overridden) */
-  lang: BundledLanguage;
+  /**
+   * The language to use for highlighting.
+   * `null` means "not yet detected" — callers should fall back to a safe default.
+   */
+  lang: BundledLanguage | null;
   /** Whether the language was set manually by the user */
   isManual: boolean;
   /** Set language manually — suspends auto-detection */
   setLangManual: (lang: BundledLanguage) => void;
-  /** Clear manual override and re-run detection on current code */
+  /** Clear manual override and reset to auto-detect */
   clearManual: () => void;
 }
 
-export function useLanguageDetection(
-  code: string,
-  defaultLang: BundledLanguage = "javascript"
-): UseLanguageDetectionReturn {
-  const [lang, setLang] = useState<BundledLanguage>(defaultLang);
+export function useLanguageDetection(code: string): UseLanguageDetectionReturn {
+  const [lang, setLang] = useState<BundledLanguage | null>(null);
   const [isManual, setIsManual] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -180,8 +110,8 @@ export function useLanguageDetection(
   }, []);
 
   const clearManual = useCallback(() => {
+    setLang(null);
     setIsManual(false);
-    // Re-run detection immediately on current code
     runDetection(code);
   }, [code, runDetection]);
 

@@ -4,10 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { type BundledLanguage, createHighlighter } from "shiki";
 import { cn } from "@/lib/cn";
 
+const FALLBACK_LANG: BundledLanguage = "javascript";
+
 export interface CodeEditorProps {
   value: string;
   onValueChange: (v: string) => void;
-  lang: BundledLanguage;
+  /** Active language for syntax highlighting. `null` = not yet detected, falls back to plain text. */
+  lang: BundledLanguage | null;
   placeholder?: string;
   className?: string;
 }
@@ -35,10 +38,14 @@ export function CodeEditor({
 }: CodeEditorProps) {
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const highlighterRef = useRef<Awaited<ReturnType<typeof createHighlighter>> | null>(null);
+
+  // Resolve the effective language — fall back to FALLBACK_LANG when null (not yet detected)
+  const effectiveLang = lang ?? FALLBACK_LANG;
+
   // Refs to access current value/lang inside the init effect without adding them as deps
-  const langRef = useRef(lang);
+  const effectiveLangRef = useRef(effectiveLang);
   const valueRef = useRef(value);
-  langRef.current = lang;
+  effectiveLangRef.current = effectiveLang;
   valueRef.current = value;
 
   // Inicializa o highlighter uma única vez no mount
@@ -47,11 +54,13 @@ export function CodeEditor({
 
     createHighlighter({
       themes: ["vesper"],
-      langs: [langRef.current],
+      langs: [effectiveLangRef.current],
     }).then((hl) => {
       if (cancelled) return;
       highlighterRef.current = hl;
-      setHighlighted(hl.codeToHtml(valueRef.current, { lang: langRef.current, theme: "vesper" }));
+      setHighlighted(
+        hl.codeToHtml(valueRef.current, { lang: effectiveLangRef.current, theme: "vesper" })
+      );
     });
 
     return () => {
@@ -66,14 +75,14 @@ export function CodeEditor({
     if (!hl) return;
 
     const loaded = hl.getLoadedLanguages();
-    if (!loaded.includes(lang)) {
-      hl.loadLanguage(lang).then(() => {
-        setHighlighted(hl.codeToHtml(value, { lang, theme: "vesper" }));
+    if (!loaded.includes(effectiveLang)) {
+      hl.loadLanguage(effectiveLang).then(() => {
+        setHighlighted(hl.codeToHtml(value, { lang: effectiveLang, theme: "vesper" }));
       });
     } else {
-      setHighlighted(hl.codeToHtml(value, { lang, theme: "vesper" }));
+      setHighlighted(hl.codeToHtml(value, { lang: effectiveLang, theme: "vesper" }));
     }
-  }, [value, lang]);
+  }, [value, effectiveLang]);
 
   const lines = value.split("\n");
   const lineCount = Math.max(value === "" ? 1 : lines.length, 8);

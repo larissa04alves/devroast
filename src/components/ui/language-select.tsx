@@ -5,9 +5,13 @@ import type { BundledLanguage } from "shiki";
 import { cn } from "@/lib/cn";
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from "@/lib/use-language-detection";
 
+// Sentinel value used internally by the Select to represent "auto-detect"
+const AUTO_VALUE = "__auto__";
+
 export interface LanguageSelectProps {
-  value: BundledLanguage;
-  onValueChange: (lang: BundledLanguage) => void;
+  /** Currently detected/selected language. `null` means auto-detect is active. */
+  value: BundledLanguage | null;
+  onValueChange: (lang: BundledLanguage | null) => void;
   /** When true, shows a dot indicating manual override is active */
   isManual?: boolean;
   className?: string;
@@ -19,8 +23,19 @@ export function LanguageSelect({
   isManual = false,
   className,
 }: LanguageSelectProps) {
+  // Map null → sentinel string so Base UI Select works with a controlled string value
+  const selectValue = value ?? AUTO_VALUE;
+
+  function handleValueChange(v: string | null) {
+    if (v === null || v === AUTO_VALUE) {
+      onValueChange(null);
+    } else {
+      onValueChange(v as SupportedLanguage);
+    }
+  }
+
   return (
-    <Select.Root value={value} onValueChange={(v) => onValueChange(v as SupportedLanguage)}>
+    <Select.Root value={selectValue} onValueChange={handleValueChange}>
       <Select.Trigger
         className={cn(
           "inline-flex items-center gap-1.5",
@@ -39,7 +54,9 @@ export function LanguageSelect({
         {isManual && (
           <span className="size-1.5 rounded-full bg-accent-amber shrink-0" aria-hidden="true" />
         )}
-        <Select.Value />
+        <Select.Value
+          placeholder={<span className="text-text-tertiary italic">auto-detect</span>}
+        />
         {/* chevron icon */}
         <Select.Icon>
           <svg
@@ -76,6 +93,28 @@ export function LanguageSelect({
               "data-[closed]:opacity-0 data-[closed]:scale-95"
             )}
           >
+            {/* Auto-detect option — always first */}
+            <Select.Item
+              value={AUTO_VALUE}
+              className={cn(
+                "flex items-center gap-2",
+                "px-3 py-1.5",
+                "font-mono text-[12px] text-text-secondary",
+                "cursor-pointer select-none outline-none",
+                "transition-colors duration-100",
+                "data-[highlighted]:bg-bg-surface data-[highlighted]:text-text-primary",
+                "data-[selected]:text-accent-green"
+              )}
+            >
+              <Select.ItemIndicator className="size-1.5 rounded-full bg-accent-green shrink-0 data-[hidden]:invisible" />
+              <Select.ItemText>
+                <span className="italic">auto-detect</span>
+              </Select.ItemText>
+            </Select.Item>
+
+            {/* Divider */}
+            <hr className="my-1 border-border-primary" />
+
             {SUPPORTED_LANGUAGES.map((lang) => (
               <Select.Item
                 key={lang}

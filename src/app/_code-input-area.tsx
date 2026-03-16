@@ -19,6 +19,14 @@ export function CodeInputArea() {
     if (newCode.trim() === "") clearManual();
   }
 
+  function handleLangChange(newLang: typeof lang) {
+    if (newLang === null) {
+      clearManual();
+    } else {
+      setLangManual(newLang);
+    }
+  }
+
   return (
     <div className="flex flex-col items-center gap-0">
       {/* Code editor — 780px wide, 360px height */}
@@ -42,7 +50,7 @@ export function CodeInputArea() {
 
         {/* Right: language selector + roast button */}
         <div className="flex items-center gap-3">
-          <LanguageSelect value={lang} onValueChange={setLangManual} isManual={isManual} />
+          <LanguageSelect value={lang} onValueChange={handleLangChange} isManual={isManual} />
           <Button variant="primary" size="md">
             roast_my_code
           </Button>
