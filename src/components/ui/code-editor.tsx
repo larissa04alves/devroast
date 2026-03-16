@@ -8,6 +8,7 @@ export interface CodeEditorProps {
   value: string;
   onValueChange: (v: string) => void;
   lang: BundledLanguage;
+  placeholder?: string;
   className?: string;
 }
 
@@ -25,38 +26,57 @@ function CodeSkeleton() {
   );
 }
 
-export function CodeEditor({ value, onValueChange, lang, className }: CodeEditorProps) {
+export function CodeEditor({
+  value,
+  onValueChange,
+  lang,
+  placeholder,
+  className,
+}: CodeEditorProps) {
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const highlighterRef = useRef<Awaited<ReturnType<typeof createHighlighter>> | null>(null);
+  // Refs to access current value/lang inside the init effect without adding them as deps
+  const langRef = useRef(lang);
+  const valueRef = useRef(value);
+  langRef.current = lang;
+  valueRef.current = value;
 
-  // Inicializa o highlighter uma única vez
+  // Inicializa o highlighter uma única vez no mount
   useEffect(() => {
     let cancelled = false;
 
     createHighlighter({
       themes: ["vesper"],
-      langs: [lang],
+      langs: [langRef.current],
     }).then((hl) => {
       if (cancelled) return;
       highlighterRef.current = hl;
-      setHighlighted(hl.codeToHtml(value, { lang, theme: "vesper" }));
+      setHighlighted(hl.codeToHtml(valueRef.current, { lang: langRef.current, theme: "vesper" }));
     });
 
     return () => {
       cancelled = true;
     };
-    // Só roda no mount — lang não muda nesta iteração
-    // biome-ignore lint: inicialização única do highlighter
   }, []);
 
-  // Atualiza o highlight a cada mudança de value
+  // Atualiza o highlight a cada mudança de value ou lang.
+  // Carrega o lang dinamicamente se ainda não estiver registrado no highlighter.
   useEffect(() => {
-    if (!highlighterRef.current) return;
-    setHighlighted(highlighterRef.current.codeToHtml(value, { lang, theme: "vesper" }));
+    const hl = highlighterRef.current;
+    if (!hl) return;
+
+    const loaded = hl.getLoadedLanguages();
+    if (!loaded.includes(lang)) {
+      hl.loadLanguage(lang).then(() => {
+        setHighlighted(hl.codeToHtml(value, { lang, theme: "vesper" }));
+      });
+    } else {
+      setHighlighted(hl.codeToHtml(value, { lang, theme: "vesper" }));
+    }
   }, [value, lang]);
 
   const lines = value.split("\n");
-  const lineCount = Math.max(lines.length, 8);
+  const lineCount = Math.max(value === "" ? 1 : lines.length, 8);
 
   return (
     <div
@@ -114,6 +134,7 @@ export function CodeEditor({ value, onValueChange, lang, className }: CodeEditor
           <textarea
             value={value}
             onChange={(e) => onValueChange(e.target.value)}
+            placeholder={placeholder}
             className={cn(
               "absolute inset-0 w-full h-full resize-none",
               "bg-transparent font-mono text-[13px] leading-5",
@@ -121,7 +142,9 @@ export function CodeEditor({ value, onValueChange, lang, className }: CodeEditor
               "outline-none border-none",
               "overflow-hidden",
               // cursor verde do tema
-              "[caret-color:var(--color-accent-green)]"
+              "[caret-color:var(--color-accent-green)]",
+              // placeholder styling — visible only when empty
+              "placeholder:text-text-tertiary placeholder:text-opacity-60"
             )}
             spellCheck={false}
             autoCorrect="off"
