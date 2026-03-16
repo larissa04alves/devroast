@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/code-editor";
 import { LanguageSelect } from "@/components/ui/language-select";
 import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/cn";
 import { useLanguageDetection } from "@/lib/use-language-detection";
+
+const MAX_LINES = 1500;
 
 export function CodeInputArea() {
   const [code, setCode] = useState("");
@@ -13,9 +16,15 @@ export function CodeInputArea() {
 
   const { lang, isManual, setLangManual, clearManual } = useLanguageDetection(code);
 
+  const lineCount = code === "" ? 0 : code.split("\n").length;
+  const ratio = lineCount / MAX_LINES;
+  const isAtLimit = lineCount >= MAX_LINES;
+  const isNearLimit = ratio >= 0.8;
+
   function handleCodeChange(newCode: string) {
+    // Hard-block: reject input that would exceed the limit
+    if (newCode.split("\n").length > MAX_LINES) return;
     setCode(newCode);
-    // If the textarea is cleared, reset manual override
     if (newCode.trim() === "") clearManual();
   }
 
@@ -48,10 +57,33 @@ export function CodeInputArea() {
           </span>
         </div>
 
-        {/* Right: language selector + roast button */}
+        {/* Right: line counter + language selector + roast button */}
         <div className="flex items-center gap-3">
+          {/* Line limit indicator — only shown once the user starts typing */}
+          {lineCount > 0 && (
+            <span
+              className={cn(
+                "font-mono text-[11px] tabular-nums transition-colors duration-200",
+                isAtLimit
+                  ? "text-accent-red"
+                  : isNearLimit
+                    ? "text-accent-amber"
+                    : "text-text-tertiary"
+              )}
+              aria-live="polite"
+            >
+              <span className="sr-only">
+                {lineCount} de {MAX_LINES} linhas
+              </span>
+              <span aria-hidden="true">
+                {lineCount}
+                <span className="text-text-tertiary">/{MAX_LINES}</span>
+              </span>
+            </span>
+          )}
+
           <LanguageSelect value={lang} onValueChange={handleLangChange} isManual={isManual} />
-          <Button variant="primary" size="md">
+          <Button variant="primary" size="md" disabled={isAtLimit || lineCount === 0}>
             roast_my_code
           </Button>
         </div>

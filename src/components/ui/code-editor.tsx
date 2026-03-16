@@ -120,7 +120,7 @@ export function CodeEditor({
         </div>
 
         {/* Área de edição — highlight + textarea sobrepostos */}
-        <div className="relative flex-1 overflow-auto">
+        <div className="relative flex-1 overflow-y-auto overflow-x-hidden">
           {highlighted === null ? (
             /* Skeleton enquanto o Shiki inicializa */
             <CodeSkeleton />
@@ -131,7 +131,9 @@ export function CodeEditor({
                 "pointer-events-none select-none",
                 // sobrescreve o <pre> gerado pelo Shiki
                 "[&>pre]:m-0 [&>pre]:p-4 [&>pre]:font-mono [&>pre]:text-[13px] [&>pre]:leading-5",
-                "[&>pre]:bg-transparent! [&>pre]:min-h-full"
+                "[&>pre]:bg-transparent! [&>pre]:min-h-full",
+                // evita scroll horizontal — linhas longas quebram
+                "[&>pre]:overflow-x-hidden [&>pre]:whitespace-pre-wrap [&>pre]:break-all"
               )}
               aria-hidden="true"
               // biome-ignore lint/security/noDangerouslySetInnerHtml: gerado pelo Shiki, sem input direto do usuário no HTML
@@ -149,7 +151,7 @@ export function CodeEditor({
               "bg-transparent font-mono text-[13px] leading-5",
               "p-4 text-transparent",
               "outline-none border-none",
-              "overflow-hidden",
+              "overflow-hidden whitespace-pre-wrap break-all",
               // cursor verde do tema
               "[caret-color:var(--color-accent-green)]",
               // placeholder styling — visible only when empty
